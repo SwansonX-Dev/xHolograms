@@ -1,0 +1,21 @@
+name: xHolograms
+version: '${version}'
+main: dev.xsuite.holograms.XHologramsPlugin
+api-version: '1.21'
+folia-supported: false
+load: POSTWORLD
+author: xSuite
+description: Modern TextDisplay holograms with MiniMessage, animations, precise controls, and YAML persistence.
+website: https://github.com/SwansonX-Dev/xHolograms
+commands:
+  hologram:
+    description: Manage xHolograms.
+    usage: /hologram help
+    aliases: [holo, holograms, xholograms]
+permissions:
+  xholograms.use:
+    description: View command help and list holograms.
+    default: op
+  xholograms.admin:
+    description: Manage all holograms.
+    default: op

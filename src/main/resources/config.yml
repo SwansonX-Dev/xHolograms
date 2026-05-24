@@ -1,0 +1,19 @@
+settings:
+  # TextDisplay lines are real entities. Lower values feel tighter.
+  line-height: 0.28
+  update-interval-ticks: 20
+  view-range: 64.0
+  shadowed: false
+  see-through: false
+  default-background: false
+  background-argb: 0
+  line-width: 220
+  billboard: CENTER
+  alignment: CENTER
+  brightness:
+    block: 15
+    sky: 15
+
+examples:
+  animation-syntax: "<gold>Frame 1||<yellow>Frame 2||<white>Frame 3"
+  placeholders: "{online}, {max_players}, {world}, {time}, {tps}"
