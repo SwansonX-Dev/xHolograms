@@ -135,6 +135,7 @@ public final class HologramManager {
             plugin.getLogger().warning("Skipping hologram '" + hologram.id() + "' because its world is not loaded.");
             return;
         }
+        base.getChunk().load();
 
         List<TextDisplay> entities = new ArrayList<>();
         for (int index = 0; index < hologram.lines().size(); index++) {
@@ -142,7 +143,7 @@ public final class HologramManager {
             Location lineLocation = base.clone().subtract(0.0D, index * style.lineHeight(settings), 0.0D);
             TextDisplay display = (TextDisplay) world.spawnEntity(lineLocation, EntityType.TEXT_DISPLAY);
             display.getPersistentDataContainer().set(hologramKey, PersistentDataType.STRING, hologram.id());
-            display.setPersistent(false);
+            display.setPersistent(true);
             display.setInvulnerable(true);
             display.setGravity(false);
             display.setBillboard(style.billboard(settings));
@@ -175,7 +176,12 @@ public final class HologramManager {
             animationTick++;
             for (Hologram hologram : holograms.values()) {
                 List<TextDisplay> displays = spawned.get(hologram.id());
-                if (displays == null || displays.size() != hologram.lines().size()) continue;
+                if (displays == null || displays.size() != hologram.lines().size()
+                        || displays.stream().anyMatch(display -> !display.isValid())) {
+                    despawn(hologram.id());
+                    spawn(hologram);
+                    continue;
+                }
                 Location base = hologram.location();
                 for (int index = 0; index < displays.size(); index++) {
                     TextDisplay display = displays.get(index);

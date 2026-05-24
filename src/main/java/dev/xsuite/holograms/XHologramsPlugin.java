@@ -23,6 +23,12 @@ public final class XHologramsPlugin extends JavaPlugin implements Listener {
         storage = new HologramStorage(this);
         holograms = new HologramManager(this, storage);
         holograms.load();
+        getServer().getScheduler().runTaskLater(this, () -> {
+            if (holograms != null) {
+                getLogger().info("Delayed startup refresh for persisted holograms.");
+                holograms.reload();
+            }
+        }, 60L);
 
         HologramCommand command = new HologramCommand(this, holograms);
         PluginCommand pluginCommand = getCommand("hologram");
@@ -55,7 +61,7 @@ public final class XHologramsPlugin extends JavaPlugin implements Listener {
     public void onWorldLoad(@NotNull WorldLoadEvent event) {
         if (holograms != null) {
             getLogger().info("World '" + event.getWorld().getName() + "' loaded; refreshing holograms.");
-            holograms.reload();
+            getServer().getScheduler().runTaskLater(this, holograms::reload, 20L);
         }
     }
 }
