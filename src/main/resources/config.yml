@@ -1,6 +1,6 @@
 settings:
   # TextDisplay lines are real entities. Lower values feel tighter.
-  line-height: 0.28
+  line-height: 0.38
   update-interval-ticks: 20
   view-range: 64.0
   shadowed: false

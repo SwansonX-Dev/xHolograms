@@ -15,8 +15,11 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Transformation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.text.DecimalFormat;
 import java.time.LocalTime;
@@ -135,21 +138,23 @@ public final class HologramManager {
 
         List<TextDisplay> entities = new ArrayList<>();
         for (int index = 0; index < hologram.lines().size(); index++) {
-            Location lineLocation = base.clone().subtract(0.0D, index * settings.lineHeight(), 0.0D);
+            HologramStyle style = hologram.style();
+            Location lineLocation = base.clone().subtract(0.0D, index * style.lineHeight(settings), 0.0D);
             TextDisplay display = (TextDisplay) world.spawnEntity(lineLocation, EntityType.TEXT_DISPLAY);
             display.getPersistentDataContainer().set(hologramKey, PersistentDataType.STRING, hologram.id());
             display.setPersistent(false);
             display.setInvulnerable(true);
             display.setGravity(false);
-            display.setBillboard(settings.billboard());
-            display.setShadowed(settings.shadowed());
-            display.setSeeThrough(settings.seeThrough());
-            display.setDefaultBackground(settings.defaultBackground());
-            display.setBackgroundColor(settings.backgroundColor());
-            display.setLineWidth(settings.lineWidth());
-            display.setAlignment(settings.alignment());
-            display.setViewRange(settings.viewRange());
+            display.setBillboard(style.billboard(settings));
+            display.setShadowed(style.shadowed(settings));
+            display.setSeeThrough(style.seeThrough(settings));
+            display.setDefaultBackground(style.defaultBackground(settings));
+            display.setBackgroundColor(style.backgroundColor(settings));
+            display.setLineWidth(style.lineWidth(settings));
+            display.setAlignment(style.alignment(settings));
+            display.setViewRange(style.viewRange(settings));
             display.setBrightness(settings.brightness());
+            display.setTransformation(scaled(style.scale()));
             display.setTeleportDuration(1);
             display.text(render(hologram.lines().get(index), base));
             entities.add(display);
@@ -179,6 +184,15 @@ public final class HologramManager {
                 }
             }
         }, settings.updateIntervalTicks(), settings.updateIntervalTicks());
+    }
+
+    private @NotNull Transformation scaled(float scale) {
+        return new Transformation(
+                new Vector3f(),
+                new AxisAngle4f(),
+                new Vector3f(scale, scale, scale),
+                new AxisAngle4f()
+        );
     }
 
     private @NotNull Component render(@NotNull HologramLine line, @NotNull Location location) {

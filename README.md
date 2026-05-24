@@ -9,7 +9,7 @@ Modern Paper holograms built on native `TextDisplay` entities.
 - Animated lines with `||` frame syntax
 - Built-in placeholders: `{online}`, `{max_players}`, `{world}`, `{time}`, `{tps}`
 - Precise line editing and movement commands
-- Configurable display settings for line height, brightness, billboard mode, alignment, background, shadow, and view range
+- Global and per-hologram display settings for spacing, scale, wrapping, billboard mode, alignment, background, shadow, and view range
 
 ## Commands
 
@@ -19,6 +19,7 @@ Modern Paper holograms built on native `TextDisplay` entities.
 - `/holo insertline <id> <line> <text>`
 - `/holo removeline <id> <line>`
 - `/holo movehere <id>`
+- `/holo style <id> <setting> <value>`
 - `/holo delete <id>`
 - `/holo list`
 - `/holo near`
@@ -37,4 +38,18 @@ Use `||` inside a line to animate between frames:
 ./gradlew build
 ```
 
-The release jar is created at `build/libs/xHolograms-0.1.0.jar`.
+The release jar is created at `build/libs/xHolograms-0.1.1.jar`.
+
+## Style Settings
+
+Examples:
+
+```text
+/holo style beta-welcome spacing 0.5
+/holo style beta-welcome scale 1.25
+/holo style beta-welcome linewidth 320
+/holo style beta-welcome shadow true
+/holo style beta-welcome backgroundcolor #99000000
+/holo style beta-welcome billboard CENTER
+/holo style beta-welcome align CENTER
+```

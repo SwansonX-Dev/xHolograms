@@ -14,11 +14,17 @@ public final class Hologram {
     private final String id;
     private Location location;
     private final List<HologramLine> lines;
+    private final HologramStyle style;
 
     public Hologram(@NotNull String id, @NotNull Location location, @NotNull List<HologramLine> lines) {
+        this(id, location, lines, new HologramStyle());
+    }
+
+    public Hologram(@NotNull String id, @NotNull Location location, @NotNull List<HologramLine> lines, @NotNull HologramStyle style) {
         this.id = normalizeId(id);
         this.location = location.clone();
         this.lines = new ArrayList<>(lines);
+        this.style = style;
     }
 
     public static @NotNull String normalizeId(@NotNull String id) {
@@ -39,6 +45,10 @@ public final class Hologram {
 
     public @NotNull List<HologramLine> lines() {
         return Collections.unmodifiableList(lines);
+    }
+
+    public @NotNull HologramStyle style() {
+        return style;
     }
 
     public void addLine(@NotNull String raw) {
