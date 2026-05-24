@@ -16,14 +16,19 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class HologramStorage {
 
     private final XHologramsPlugin plugin;
     private final File file;
+    private final Set<String> skippedOnLastLoad = new HashSet<>();
 
     public HologramStorage(@NotNull XHologramsPlugin plugin) {
         this.plugin = plugin;
@@ -31,6 +36,7 @@ public final class HologramStorage {
     }
 
     public @NotNull List<Hologram> load() {
+        skippedOnLastLoad.clear();
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         ConfigurationSection root = yaml.getConfigurationSection("holograms");
         if (root == null) return List.of();
@@ -42,6 +48,7 @@ public final class HologramStorage {
 
             World world = Bukkit.getWorld(section.getString("world", ""));
             if (world == null) {
+                skippedOnLastLoad.add(id);
                 plugin.getLogger().warning("Skipping hologram '" + id + "' because world '" + section.getString("world") + "' is not loaded.");
                 continue;
             }
@@ -63,11 +70,14 @@ public final class HologramStorage {
     }
 
     public void save(@NotNull Collection<Hologram> holograms) {
+        YamlConfiguration previous = YamlConfiguration.loadConfiguration(file);
         YamlConfiguration yaml = new YamlConfiguration();
         ConfigurationSection root = yaml.createSection("holograms");
+        Set<String> savedIds = new HashSet<>();
 
         for (Hologram hologram : holograms) {
             Location location = hologram.location();
+            savedIds.add(hologram.id());
             ConfigurationSection section = root.createSection(hologram.id());
             section.set("world", location.getWorld() == null ? "world" : location.getWorld().getName());
             section.set("x", location.getX());
@@ -79,11 +89,48 @@ public final class HologramStorage {
             saveStyle(section.createSection("style"), hologram.style());
         }
 
+        preserveSkippedHolograms(previous, root, savedIds);
+
         try {
+            backupExistingFile();
             yaml.save(file);
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to save holograms.yml: " + e.getMessage());
         }
+    }
+
+    private void preserveSkippedHolograms(@NotNull YamlConfiguration previous,
+                                          @NotNull ConfigurationSection targetRoot,
+                                          @NotNull Set<String> savedIds) {
+        ConfigurationSection previousRoot = previous.getConfigurationSection("holograms");
+        if (previousRoot == null) return;
+
+        for (String id : skippedOnLastLoad) {
+            if (savedIds.contains(id)) continue;
+            ConfigurationSection previousSection = previousRoot.getConfigurationSection(id);
+            if (previousSection == null) continue;
+            ConfigurationSection targetSection = targetRoot.createSection(id);
+            copySection(previousSection, targetSection);
+            plugin.getLogger().warning("Preserved unloaded-world hologram '" + id + "' while saving holograms.yml.");
+        }
+    }
+
+    private void copySection(@NotNull ConfigurationSection source, @NotNull ConfigurationSection target) {
+        for (String key : source.getKeys(false)) {
+            if (source.isConfigurationSection(key)) {
+                ConfigurationSection child = source.getConfigurationSection(key);
+                if (child == null) continue;
+                copySection(child, target.createSection(key));
+            } else {
+                target.set(key, source.get(key));
+            }
+        }
+    }
+
+    private void backupExistingFile() throws IOException {
+        if (!file.exists() || file.length() <= 0L) return;
+        File backup = new File(file.getParentFile(), "holograms.yml.bak");
+        Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
     private @NotNull HologramStyle loadStyle(ConfigurationSection section) {

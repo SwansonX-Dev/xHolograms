@@ -4,10 +4,13 @@ import dev.xsuite.holograms.command.HologramCommand;
 import dev.xsuite.holograms.hologram.HologramManager;
 import dev.xsuite.holograms.storage.HologramStorage;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
-public final class XHologramsPlugin extends JavaPlugin {
+public final class XHologramsPlugin extends JavaPlugin implements Listener {
 
     private HologramStorage storage;
     private HologramManager holograms;
@@ -27,6 +30,7 @@ public final class XHologramsPlugin extends JavaPlugin {
             pluginCommand.setExecutor(command);
             pluginCommand.setTabCompleter(command);
         }
+        getServer().getPluginManager().registerEvents(this, this);
 
         getLogger().info("Loaded " + holograms.holograms().size() + " hologram(s).");
     }
@@ -45,5 +49,13 @@ public final class XHologramsPlugin extends JavaPlugin {
 
     public @NotNull HologramManager holograms() {
         return holograms;
+    }
+
+    @EventHandler
+    public void onWorldLoad(@NotNull WorldLoadEvent event) {
+        if (holograms != null) {
+            getLogger().info("World '" + event.getWorld().getName() + "' loaded; refreshing holograms.");
+            holograms.reload();
+        }
     }
 }
