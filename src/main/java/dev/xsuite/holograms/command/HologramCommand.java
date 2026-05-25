@@ -2,8 +2,10 @@ package dev.xsuite.holograms.command;
 
 import dev.xsuite.holograms.XHologramsPlugin;
 import dev.xsuite.holograms.hologram.Hologram;
+import dev.xsuite.holograms.hologram.HologramLine;
 import dev.xsuite.holograms.hologram.HologramManager;
 import dev.xsuite.holograms.hologram.HologramStyle;
+import dev.xsuite.holograms.web.PinStore;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -20,12 +22,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public final class HologramCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "help", "create", "delete", "list", "near", "info", "teleport", "movehere",
-            "addline", "insertline", "setline", "removeline", "clear", "style", "reload"
+            "help", "create", "delete", "list", "near", "nearby", "info", "teleport", "movehere", "move",
+            "copy", "rename", "addline", "insertline", "setline", "removeline", "clear", "style", "pin", "reload"
     );
     private static final List<String> STYLE_KEYS = List.of(
             "spacing", "scale", "viewrange", "linewidth", "shadow", "seethrough",
@@ -34,10 +37,12 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
 
     private final XHologramsPlugin plugin;
     private final HologramManager holograms;
+    private final PinStore pinStore;
 
-    public HologramCommand(@NotNull XHologramsPlugin plugin, @NotNull HologramManager holograms) {
+    public HologramCommand(@NotNull XHologramsPlugin plugin, @NotNull HologramManager holograms, @NotNull PinStore pinStore) {
         this.plugin = plugin;
         this.holograms = holograms;
+        this.pinStore = pinStore;
     }
 
     @Override
@@ -53,17 +58,22 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
                 case "help" -> help(sender, label);
                 case "create" -> create(sender, args);
                 case "delete" -> delete(sender, args);
-                case "list" -> list(sender);
-                case "near" -> near(sender);
+                case "list" -> list(sender, args);
+                case "near" -> near(sender, args);
+                case "nearby" -> nearby(sender, args);
                 case "info" -> info(sender, args);
                 case "teleport", "tp" -> teleport(sender, args);
                 case "movehere" -> moveHere(sender, args);
+                case "move" -> move(sender, args);
+                case "copy", "clone" -> copy(sender, args);
+                case "rename" -> rename(sender, args);
                 case "addline" -> addLine(sender, args);
                 case "insertline" -> insertLine(sender, args);
                 case "setline" -> setLine(sender, args);
                 case "removeline" -> removeLine(sender, args);
                 case "clear" -> clear(sender, args);
                 case "style" -> style(sender, args);
+                case "pin" -> pin(sender);
                 case "reload" -> reload(sender);
                 default -> sender.sendMessage("§cUnknown subcommand. Use /" + label + " help.");
             }
@@ -80,9 +90,18 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/" + label + " setline <id> <line> <text> §7- replace a line");
         sender.sendMessage("§e/" + label + " insertline <id> <line> <text> §7- insert a line");
         sender.sendMessage("§e/" + label + " removeline <id> <line> §7- remove a line");
+        sender.sendMessage("§e/" + label + " clear <id> §7- empty all lines (keeps hologram)");
         sender.sendMessage("§e/" + label + " movehere <id> §7- move to your location");
+        sender.sendMessage("§e/" + label + " move <id> [<x> <y> <z>] §7- move to coords (~ = current)");
+        sender.sendMessage("§e/" + label + " copy <src> <dst> §7- duplicate at your location");
+        sender.sendMessage("§e/" + label + " rename <old> <new> §7- rename a hologram");
         sender.sendMessage("§e/" + label + " style <id> <setting> <value> §7- customize display");
-        sender.sendMessage("§e/" + label + " list|near|info|delete|reload");
+        sender.sendMessage("§e/" + label + " pin §7- create a browser editor code for your location");
+        sender.sendMessage("§e/" + label + " list [world] §7- list all (optionally per-world)");
+        sender.sendMessage("§e/" + label + " near [distance] §7- show closest hologram");
+        sender.sendMessage("§e/" + label + " nearby [distance] §7- list all within range");
+        sender.sendMessage("§e/" + label + " info|teleport|delete|reload");
+        sender.sendMessage("§7Placeholders: §f{online} {max_players} {world} {x} {y} {z} {time} {date} {tps}");
         sender.sendMessage("§7MiniMessage is supported. Use §f||§7 between frames for animation.");
     }
 
@@ -90,8 +109,11 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         requireAdmin(sender);
         Player player = requirePlayer(sender);
         requireArgs(args, 2, "Usage: /hologram create <id> [text]");
-        List<String> lines = args.length >= 3 ? List.of(join(args, 2)) : List.of("<gold><bold>" + args[1] + "</bold>", "<gray>Edit me with /holo setline");
-        Hologram hologram = holograms.create(args[1], player.getLocation(), lines);
+        String safeId = Hologram.normalizeId(args[1]);
+        List<String> lines = args.length >= 3
+                ? List.of(join(args, 2))
+                : List.of("<gold><bold>" + safeId + "</bold>", "<gray>Edit me with /holo setline");
+        Hologram hologram = holograms.create(safeId, player.getLocation(), lines);
         sender.sendMessage("§aCreated hologram §f" + hologram.id() + "§a.");
     }
 
@@ -105,49 +127,106 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void list(@NotNull CommandSender sender) {
-        List<Hologram> all = new ArrayList<>(holograms.holograms());
+    private void list(@NotNull CommandSender sender, @NotNull String[] args) {
+        String filter = args.length >= 2 ? args[1] : null;
+        List<Hologram> all = holograms.holograms().stream()
+                .filter(h -> filter == null || filter.equalsIgnoreCase(h.worldName()))
+                .toList();
         if (all.isEmpty()) {
-            sender.sendMessage("§7No holograms exist yet.");
+            sender.sendMessage(filter == null ? "§7No holograms exist yet." : "§7No holograms in world '" + filter + "'.");
             return;
         }
-        sender.sendMessage("§6xHolograms §7(" + all.size() + "):");
+        String header = filter == null
+                ? "§6xHolograms §7(" + all.size() + ")"
+                : "§6xHolograms §7in §f" + filter + "§7 (" + all.size() + ")";
+        sender.sendMessage(header + ":");
         for (Hologram hologram : all) {
             Location location = hologram.location();
-            String world = location.getWorld() == null ? "unknown" : location.getWorld().getName();
-            sender.sendMessage("§e" + hologram.id() + " §7- " + world + " " + block(location) + " §8(" + hologram.lines().size() + " lines)");
+            sender.sendMessage("§e" + hologram.id() + " §7- " + worldLabel(hologram) + " " + block(location) + " §8(" + hologram.lines().size() + " lines)");
         }
     }
 
-    private void near(@NotNull CommandSender sender) {
+    private String worldLabel(@NotNull Hologram hologram) {
+        String name = hologram.worldName();
+        if (name == null) return "unknown";
+        Location loc = hologram.location();
+        return loc.getWorld() == null ? name + " §8(unloaded)" : name;
+    }
+
+    private void near(@NotNull CommandSender sender, @NotNull String[] args) {
         Player player = requirePlayer(sender);
-        Hologram nearest = holograms.nearest(player.getLocation(), 32.0D);
+        double distance = parseDistance(args, 32.0D);
+        Hologram nearest = holograms.nearest(player.getLocation(), distance);
         if (nearest == null) {
-            sender.sendMessage("§7No holograms within 32 blocks.");
+            sender.sendMessage("§7No holograms within " + ((long) distance) + " blocks.");
             return;
         }
         sender.sendMessage("§aNearest hologram: §f" + nearest.id() + " §7at " + block(nearest.location()));
     }
 
+    private void nearby(@NotNull CommandSender sender, @NotNull String[] args) {
+        Player player = requirePlayer(sender);
+        double distance = parseDistance(args, 32.0D);
+        Location origin = player.getLocation();
+        List<Hologram> matches = holograms.within(origin, distance);
+        if (matches.isEmpty()) {
+            sender.sendMessage("§7No holograms within " + ((long) distance) + " blocks.");
+            return;
+        }
+        sender.sendMessage("§6xHolograms §7within " + ((long) distance) + " blocks (" + matches.size() + "):");
+        for (Hologram hologram : matches) {
+            double blocks = Math.sqrt(hologram.location().distanceSquared(origin));
+            sender.sendMessage("§e" + hologram.id() + " §7- " + String.format("%.1f", blocks) + "m " + block(hologram.location()));
+        }
+    }
+
+    private double parseDistance(@NotNull String[] args, double defaultValue) {
+        if (args.length < 2) return defaultValue;
+        double distance = parseDouble(args[1], "distance");
+        if (distance <= 0 || distance > 1024.0D) {
+            throw new IllegalArgumentException("distance must be between 0 and 1024.");
+        }
+        return distance;
+    }
+
     private void info(@NotNull CommandSender sender, @NotNull String[] args) {
         requireArgs(args, 2, "Usage: /hologram info <id>");
         Hologram hologram = requireHologram(args[1]);
-        sender.sendMessage("§6" + hologram.id() + " §7at " + block(hologram.location()));
+        sender.sendMessage("§6" + hologram.id() + " §7in §f" + worldLabel(hologram) + " §7at " + block(hologram.location()));
         for (int i = 0; i < hologram.lines().size(); i++) {
-            sender.sendMessage("§e" + (i + 1) + "§7: §f" + hologram.lines().get(i).raw());
+            HologramLine line = hologram.lines().get(i);
+            String marker = line.animated() ? " §8(" + line.frames().size() + " frames)" : "";
+            sender.sendMessage("§e" + (i + 1) + "§7: §f" + line.raw() + marker);
         }
         HologramStyle style = hologram.style();
-        sender.sendMessage("§7Style overrides: spacing=" + value(style.lineHeightOverride())
+        sender.sendMessage("§7Style overrides:");
+        sender.sendMessage("§7  spacing=" + value(style.lineHeightOverride())
                 + ", scale=" + value(style.scaleOverride())
                 + ", viewrange=" + value(style.viewRangeOverride())
                 + ", linewidth=" + value(style.lineWidthOverride()));
+        sender.sendMessage("§7  shadow=" + value(style.shadowedOverride())
+                + ", seethrough=" + value(style.seeThroughOverride())
+                + ", background=" + value(style.defaultBackgroundOverride())
+                + ", backgroundcolor=" + colorValue(style.backgroundColorOverride()));
+        sender.sendMessage("§7  billboard=" + value(style.billboardOverride())
+                + ", align=" + value(style.alignmentOverride()));
+    }
+
+    private String colorValue(@Nullable Color color) {
+        if (color == null) return "default";
+        return String.format("#%08X", color.asARGB());
     }
 
     private void teleport(@NotNull CommandSender sender, @NotNull String[] args) {
         Player player = requirePlayer(sender);
         requireArgs(args, 2, "Usage: /hologram teleport <id>");
-        player.teleport(requireHologram(args[1]).location());
-        sender.sendMessage("§aTeleported.");
+        Hologram hologram = requireHologram(args[1]);
+        Location target = hologram.location();
+        if (target.getWorld() == null) {
+            throw new IllegalArgumentException("Cannot teleport: hologram '" + hologram.id() + "' is in an unloaded world.");
+        }
+        player.teleport(target);
+        sender.sendMessage("§aTeleported to §f" + hologram.id() + "§a.");
     }
 
     private void moveHere(@NotNull CommandSender sender, @NotNull String[] args) {
@@ -158,6 +237,55 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         hologram.location(player.getLocation());
         holograms.respawn(hologram);
         sender.sendMessage("§aMoved §f" + hologram.id() + "§a.");
+    }
+
+    private void move(@NotNull CommandSender sender, @NotNull String[] args) {
+        requireAdmin(sender);
+        requireArgs(args, 2, "Usage: /hologram move <id> [<x> <y> <z>]");
+        Hologram hologram = requireHologram(args[1]);
+        Location target;
+        if (args.length == 2) {
+            Player player = requirePlayer(sender);
+            target = player.getLocation();
+        } else {
+            requireArgs(args, 5, "Usage: /hologram move <id> <x> <y> <z>");
+            Location current = hologram.location();
+            if (current.getWorld() == null) {
+                throw new IllegalArgumentException("Hologram '" + hologram.id() + "' is in an unloaded world; use /holo movehere instead.");
+            }
+            double x = parseCoord(args[2], current.getX(), "x");
+            double y = parseCoord(args[3], current.getY(), "y");
+            double z = parseCoord(args[4], current.getZ(), "z");
+            target = new Location(current.getWorld(), x, y, z, current.getYaw(), current.getPitch());
+        }
+        hologram.location(target);
+        holograms.respawn(hologram);
+        sender.sendMessage("§aMoved §f" + hologram.id() + "§7 to " + block(target));
+    }
+
+    private void copy(@NotNull CommandSender sender, @NotNull String[] args) {
+        requireAdmin(sender);
+        Player player = requirePlayer(sender);
+        requireArgs(args, 3, "Usage: /hologram copy <src> <dst>");
+        Hologram copy = holograms.copy(args[1], args[2], player.getLocation());
+        sender.sendMessage("§aCopied §f" + Hologram.normalizeId(args[1]) + "§a to §f" + copy.id() + "§a.");
+    }
+
+    private void rename(@NotNull CommandSender sender, @NotNull String[] args) {
+        requireAdmin(sender);
+        requireArgs(args, 3, "Usage: /hologram rename <old> <new>");
+        Hologram renamed = holograms.rename(args[1], args[2]);
+        sender.sendMessage("§aRenamed §f" + Hologram.normalizeId(args[1]) + "§a to §f" + renamed.id() + "§a.");
+    }
+
+    private double parseCoord(@NotNull String raw, double current, @NotNull String name) {
+        if ("~".equals(raw)) return current;
+        try {
+            if (raw.startsWith("~")) return current + Double.parseDouble(raw.substring(1));
+            return Double.parseDouble(raw);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be a number or relative ~offset.");
+        }
     }
 
     private void addLine(@NotNull CommandSender sender, @NotNull String[] args) {
@@ -208,16 +336,26 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         requireAdmin(sender);
         requireArgs(args, 2, "Usage: /hologram clear <id>");
         Hologram hologram = requireHologram(args[1]);
-        holograms.delete(hologram.id());
-        sender.sendMessage("§aCleared §f" + hologram.id() + "§a.");
+        hologram.replaceLines(List.of(HologramLine.parse("<gray>(empty)")));
+        holograms.respawn(hologram);
+        sender.sendMessage("§aCleared lines of §f" + hologram.id() + "§a.");
     }
 
     private void style(@NotNull CommandSender sender, @NotNull String[] args) {
         requireAdmin(sender);
-        requireArgs(args, 4, "Usage: /hologram style <id> <setting> <value>");
+        requireArgs(args, 3, "Usage: /hologram style <id> <setting> [value]");
         Hologram hologram = requireHologram(args[1]);
         HologramStyle style = hologram.style();
         String setting = args[2].toLowerCase(Locale.ROOT);
+
+        if ("reset".equals(setting)) {
+            style.reset();
+            holograms.respawn(hologram);
+            sender.sendMessage("§aReset all style overrides for §f" + hologram.id() + "§a.");
+            return;
+        }
+
+        requireArgs(args, 4, "Usage: /hologram style <id> " + setting + " <value>");
         String value = args[3];
 
         switch (setting) {
@@ -231,7 +369,6 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
             case "backgroundcolor", "background-color" -> style.backgroundColor(parseColor(value));
             case "billboard" -> style.billboard(parseEnum(Display.Billboard.class, value, "billboard"));
             case "align", "alignment" -> style.alignment(parseEnum(TextDisplay.TextAlignment.class, value, "alignment"));
-            case "reset" -> style.reset();
             default -> throw new IllegalArgumentException("Unknown style setting. Use spacing, scale, viewrange, linewidth, shadow, seethrough, background, backgroundcolor, billboard, align, or reset.");
         }
 
@@ -243,6 +380,15 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         requireAdmin(sender);
         plugin.reloadPlugin();
         sender.sendMessage("§aReloaded xHolograms.");
+    }
+
+    private void pin(@NotNull CommandSender sender) {
+        requireAdmin(sender);
+        Player player = requirePlayer(sender);
+        String code = pinStore.create(player);
+        long minutes = PinStore.ttlMillis() / 60000L;
+        sender.sendMessage("§aWeb editor pin: §f" + code);
+        sender.sendMessage("§7Paste this code in the web editor to use your current location. It expires in " + minutes + " minutes.");
     }
 
     private Hologram requireHologram(@NotNull String id) {
@@ -339,6 +485,12 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2 && expectsHologram(args[0])) {
             return filter(holograms.holograms().stream().map(Hologram::id).toList(), args[1]);
         }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("near") || args[0].equalsIgnoreCase("nearby"))) {
+            return filter(List.of("16", "32", "64", "128"), args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("list")) {
+            return filter(holograms.holograms().stream().map(Hologram::worldName).filter(Objects::nonNull).distinct().toList(), args[1]);
+        }
         if (args.length == 3 && args[0].equalsIgnoreCase("style")) return filter(STYLE_KEYS, args[2]);
         if (args.length == 4 && args[0].equalsIgnoreCase("style")) return styleValues(args[2], args[3]);
         if (args.length == 3 && List.of("setline", "insertline", "removeline").contains(args[0].toLowerCase(Locale.ROOT))) {
@@ -349,11 +501,20 @@ public final class HologramCommand implements CommandExecutor, TabCompleter {
             for (int i = 1; i <= max; i++) lines.add(Integer.toString(i));
             return filter(lines, args[2]);
         }
+        if (args.length >= 3 && args.length <= 5 && args[0].equalsIgnoreCase("move") && sender instanceof Player player) {
+            Location at = player.getLocation();
+            double current = switch (args.length) {
+                case 3 -> at.getX();
+                case 4 -> at.getY();
+                default -> at.getZ();
+            };
+            return filter(List.of("~", String.format("%.1f", current)), args[args.length - 1]);
+        }
         return List.of();
     }
 
     private boolean expectsHologram(@NotNull String subcommand) {
-        return !List.of("help", "create", "list", "near", "reload").contains(subcommand.toLowerCase(Locale.ROOT));
+        return !List.of("help", "create", "list", "near", "nearby", "pin", "reload").contains(subcommand.toLowerCase(Locale.ROOT));
     }
 
     private List<String> styleValues(@NotNull String setting, @NotNull String input) {

@@ -2,6 +2,7 @@ package dev.xsuite.holograms.hologram;
 
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +14,7 @@ public final class Hologram {
 
     private final String id;
     private Location location;
+    private String worldName;
     private final List<HologramLine> lines;
     private final HologramStyle style;
 
@@ -23,12 +25,17 @@ public final class Hologram {
     public Hologram(@NotNull String id, @NotNull Location location, @NotNull List<HologramLine> lines, @NotNull HologramStyle style) {
         this.id = normalizeId(id);
         this.location = location.clone();
+        this.worldName = location.getWorld() == null ? null : location.getWorld().getName();
         this.lines = new ArrayList<>(lines);
         this.style = style;
     }
 
     public static @NotNull String normalizeId(@NotNull String id) {
-        return id.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "-");
+        String normalized = id.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "-");
+        if (normalized.isEmpty() || normalized.chars().allMatch(c -> c == '-')) {
+            throw new IllegalArgumentException("Hologram id must contain at least one letter, digit, or underscore.");
+        }
+        return normalized;
     }
 
     public @NotNull String id() {
@@ -41,6 +48,17 @@ public final class Hologram {
 
     public void location(@NotNull Location location) {
         this.location = location.clone();
+        if (location.getWorld() != null) {
+            this.worldName = location.getWorld().getName();
+        }
+    }
+
+    public @Nullable String worldName() {
+        return worldName;
+    }
+
+    public void worldName(@NotNull String worldName) {
+        this.worldName = worldName;
     }
 
     public @NotNull List<HologramLine> lines() {
@@ -65,6 +83,11 @@ public final class Hologram {
 
     public @NotNull HologramLine removeLine(int index) {
         return lines.remove(index);
+    }
+
+    public void replaceLines(@NotNull List<HologramLine> replacement) {
+        lines.clear();
+        lines.addAll(replacement);
     }
 
     public boolean isEmpty() {

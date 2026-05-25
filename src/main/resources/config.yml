@@ -14,6 +14,17 @@ settings:
     block: 15
     sky: 15
 
+web:
+  # Enable the browser-based editor. Disabled by default.
+  enabled: false
+  # Bind address. Use 127.0.0.1 to keep it loopback-only.
+  bind: 127.0.0.1
+  # Port the editor listens on.
+  port: 8765
+  # Auth token. Leave empty to auto-generate one on first start and write it back here.
+  token: ""
+
 examples:
   animation-syntax: "<gold>Frame 1||<yellow>Frame 2||<white>Frame 3"
-  placeholders: "{online}, {max_players}, {world}, {time}, {tps}"
+  placeholders: "{online}, {max_players}, {world}, {x}, {y}, {z}, {time}, {date}, {tps}"
+  web-editor: "Run /holo pin in-game to generate a coordinate code, then paste it into the web editor."

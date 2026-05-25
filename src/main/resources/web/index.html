@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>xHolograms Editor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101418;
+      --panel: #171d22;
+      --panel-2: #1f272e;
+      --line: #303942;
+      --text: #eef4f8;
+      --muted: #9fb0bd;
+      --accent: #2fbf8f;
+      --danger: #df5b61;
+      --warn: #d5a021;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      border-radius: 6px;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: #36c996;
+      background: #1d8b69;
+    }
+
+    button.danger {
+      border-color: #8f3438;
+      background: #5b2428;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #0d1115;
+      border-radius: 6px;
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 210px;
+      resize: vertical;
+      line-height: 1.35;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      min-width: 0;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      min-height: 0;
+    }
+
+    header {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .auth {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .list {
+      overflow: auto;
+      padding: 10px;
+      display: grid;
+      align-content: start;
+      gap: 6px;
+    }
+
+    .item {
+      text-align: left;
+      display: grid;
+      gap: 3px;
+      padding: 10px;
+      background: transparent;
+    }
+
+    .item.active {
+      border-color: var(--accent);
+      background: #16342b;
+    }
+
+    .item span {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    main {
+      min-width: 0;
+      overflow: auto;
+    }
+
+    .editor {
+      max-width: 1180px;
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .bar h2 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .span-2 { grid-column: span 2; }
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-12 { grid-column: span 12; }
+
+    .section {
+      display: grid;
+      gap: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 18px;
+    }
+
+    .section h3 {
+      margin: 0;
+      font-size: 15px;
+      color: #dbe5eb;
+    }
+
+    .pin-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 220px) auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .checks label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .checks input {
+      width: auto;
+    }
+
+    .preview {
+      min-height: 180px;
+      border: 1px solid var(--line);
+      background: #0a0d10;
+      border-radius: 8px;
+      padding: 18px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 8px;
+      overflow: auto;
+    }
+
+    .preview-line {
+      max-width: 100%;
+      text-align: center;
+      overflow-wrap: anywhere;
+      text-shadow: 0 1px 1px #000;
+      font-size: 20px;
+    }
+
+    .status {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--accent); }
+    .empty {
+      color: var(--muted);
+      padding: 20px;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { min-height: 420px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .span-2, .span-3, .span-4, .span-6 { grid-column: span 12; }
+      .bar { align-items: stretch; flex-direction: column; }
+      .actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <header>
+        <h1>xHolograms Editor</h1>
+        <div class="auth">
+          <input id="token" type="password" placeholder="Auth token">
+          <button id="saveToken">Use</button>
+        </div>
+        <div id="status" class="status"></div>
+      </header>
+      <div class="toolbar">
+        <button id="refresh">Refresh</button>
+        <button id="newHologram" class="primary">New</button>
+      </div>
+      <div id="hologramList" class="list"></div>
+    </aside>
+
+    <main>
+      <form id="form" class="editor">
+        <div class="bar">
+          <h2 id="title">New hologram</h2>
+          <div class="actions">
+            <button id="save" type="submit" class="primary">Save</button>
+            <button id="delete" type="button" class="danger">Delete</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Location</h3>
+          <div class="pin-row">
+            <label>Pin code
+              <input id="pinCode" maxlength="12" autocomplete="off" placeholder="Paste /holo pin code">
+            </label>
+            <button id="usePin" type="button">Use Pin</button>
+          </div>
+          <div class="grid">
+            <label class="span-4">Id
+              <input id="id" required placeholder="spawn-title">
+            </label>
+            <label class="span-4">World
+              <select id="world" required></select>
+            </label>
+            <label class="span-2">X
+              <input id="x" type="number" step="0.01" required>
+            </label>
+            <label class="span-2">Y
+              <input id="y" type="number" step="0.01" required>
+            </label>
+            <label class="span-2">Z
+              <input id="z" type="number" step="0.01" required>
+            </label>
+            <label class="span-2">Yaw
+              <input id="yaw" type="number" step="0.01">
+            </label>
+            <label class="span-2">Pitch
+              <input id="pitch" type="number" step="0.01">
+            </label>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Lines</h3>
+          <label>MiniMessage, one hologram line per editor line
+            <textarea id="lines" spellcheck="false"></textarea>
+          </label>
+          <div id="preview" class="preview"></div>
+        </div>
+
+        <div class="section">
+          <h3>Style</h3>
+          <div class="grid">
+            <label class="span-2">Spacing
+              <input id="lineHeight" type="number" step="0.01" min="0.05" max="2" placeholder="default">
+            </label>
+            <label class="span-2">Scale
+              <input id="scale" type="number" step="0.05" min="0.25" max="4" placeholder="default">
+            </label>
+            <label class="span-2">View range
+              <input id="viewRange" type="number" step="1" min="1" max="256" placeholder="default">
+            </label>
+            <label class="span-2">Line width
+              <input id="lineWidth" type="number" step="1" min="20" max="1000" placeholder="default">
+            </label>
+            <label class="span-2">Background
+              <input id="backgroundColor" placeholder="#AARRGGBB">
+            </label>
+            <label class="span-3">Billboard
+              <select id="billboard"></select>
+            </label>
+            <label class="span-3">Alignment
+              <select id="alignment"></select>
+            </label>
+            <div class="span-6 checks">
+              <label><input id="shadowed" type="checkbox"> Shadow</label>
+              <label><input id="seeThrough" type="checkbox"> See through</label>
+              <label><input id="defaultBackground" type="checkbox"> Default background</label>
+            </div>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    const els = Object.fromEntries([...document.querySelectorAll('[id]')].map(el => [el.id, el]));
+    const state = { holograms: [], currentId: null, loaded: null };
+    const params = new URLSearchParams(location.search);
+    const storedToken = localStorage.getItem('xholograms-token') || '';
+    els.token.value = params.get('token') || storedToken;
+
+    const styleKeys = ['lineHeight', 'scale', 'viewRange', 'lineWidth', 'shadowed', 'seeThrough', 'defaultBackground', 'backgroundColor', 'billboard', 'alignment'];
+
+    function setStatus(message, kind = '') {
+      els.status.textContent = message;
+      els.status.className = 'status ' + kind;
+    }
+
+    async function api(path, options = {}) {
+      const token = els.token.value.trim();
+      if (!token) throw new Error('Enter the web token from config.yml or the server console URL.');
+      const res = await fetch(path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Auth-Token': token,
+          ...(options.headers || {})
+        }
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    }
+
+    function optionList(select, values, includeDefault) {
+      select.innerHTML = '';
+      if (includeDefault) select.append(new Option('Default', ''));
+      for (const value of values) select.append(new Option(value, value));
+    }
+
+    async function refreshAll(selectId) {
+      const [list, worlds, styles] = await Promise.all([
+        api('/api/holograms'),
+        api('/api/worlds'),
+        api('/api/styles')
+      ]);
+      state.holograms = list.holograms || [];
+      optionList(els.world, worlds.worlds || [], false);
+      optionList(els.billboard, styles.billboard || [], true);
+      optionList(els.alignment, styles.alignment || [], true);
+      renderList();
+      if (selectId) {
+        const match = state.holograms.find(h => h.id === selectId);
+        if (match) selectHologram(match);
+      } else if (state.holograms.length && !state.currentId) {
+        selectHologram(state.holograms[0]);
+      }
+      setStatus('Connected.', 'ok');
+    }
+
+    function renderList() {
+      els.hologramList.innerHTML = '';
+      if (!state.holograms.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'No holograms yet.';
+        els.hologramList.append(empty);
+        return;
+      }
+      for (const hologram of state.holograms) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'item' + (hologram.id === state.currentId ? ' active' : '');
+        btn.innerHTML = `<strong></strong><span></span>`;
+        btn.querySelector('strong').textContent = hologram.id;
+        btn.querySelector('span').textContent = `${hologram.world || 'unknown'} ${round(hologram.x)}, ${round(hologram.y)}, ${round(hologram.z)}`;
+        btn.addEventListener('click', () => selectHologram(hologram));
+        els.hologramList.append(btn);
+      }
+    }
+
+    function selectHologram(hologram) {
+      state.currentId = hologram.id;
+      state.loaded = structuredClone(hologram);
+      els.title.textContent = hologram.id;
+      els.id.value = hologram.id;
+      els.id.disabled = true;
+      els.world.value = hologram.world || '';
+      els.x.value = hologram.x ?? 0;
+      els.y.value = hologram.y ?? 0;
+      els.z.value = hologram.z ?? 0;
+      els.yaw.value = hologram.yaw ?? 0;
+      els.pitch.value = hologram.pitch ?? 0;
+      els.lines.value = (hologram.lines || []).join('\n');
+      const style = hologram.style || {};
+      for (const key of styleKeys) {
+        const el = els[key];
+        if (!el) continue;
+        if (el.type === 'checkbox') el.checked = style[key] === true;
+        else el.value = style[key] ?? '';
+      }
+      els.delete.disabled = false;
+      renderList();
+      renderPreview();
+    }
+
+    function newHologram() {
+      state.currentId = null;
+      state.loaded = null;
+      els.title.textContent = 'New hologram';
+      els.id.disabled = false;
+      els.id.value = '';
+      els.x.value = 0;
+      els.y.value = 80;
+      els.z.value = 0;
+      els.yaw.value = 0;
+      els.pitch.value = 0;
+      els.lines.value = '<gold><bold>New hologram</bold>\n<gray>Edit me in the browser';
+      for (const key of styleKeys) {
+        const el = els[key];
+        if (!el) continue;
+        if (el.type === 'checkbox') el.checked = false;
+        else el.value = '';
+      }
+      els.delete.disabled = true;
+      renderList();
+      renderPreview();
+    }
+
+    function payload() {
+      const style = {};
+      for (const key of styleKeys) {
+        const el = els[key];
+        if (!el) continue;
+        if (el.type === 'checkbox') {
+          if (el.checked) style[key] = true;
+        } else if (el.value.trim() !== '') {
+          style[key] = numericStyle(key) ? Number(el.value) : el.value.trim();
+        }
+      }
+      return {
+        id: els.id.value.trim(),
+        world: els.world.value,
+        x: Number(els.x.value),
+        y: Number(els.y.value),
+        z: Number(els.z.value),
+        yaw: Number(els.yaw.value || 0),
+        pitch: Number(els.pitch.value || 0),
+        lines: els.lines.value.split(/\r?\n/).filter(line => line.length > 0),
+        style
+      };
+    }
+
+    function numericStyle(key) {
+      return ['lineHeight', 'scale', 'viewRange', 'lineWidth'].includes(key);
+    }
+
+    async function save(event) {
+      event.preventDefault();
+      const body = payload();
+      const path = state.currentId ? `/api/holograms/${encodeURIComponent(state.currentId)}` : '/api/holograms';
+      const method = state.currentId ? 'PUT' : 'POST';
+      const saved = await api(path, { method, body: JSON.stringify(body) });
+      state.currentId = saved.id;
+      await refreshAll(saved.id);
+      setStatus('Saved ' + saved.id + '.', 'ok');
+    }
+
+    async function deleteCurrent() {
+      if (!state.currentId) return;
+      const id = state.currentId;
+      await api(`/api/holograms/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      state.currentId = null;
+      await refreshAll();
+      newHologram();
+      setStatus('Deleted ' + id + '.', 'ok');
+    }
+
+    async function usePin() {
+      const code = els.pinCode.value.trim().toUpperCase();
+      if (!code) return;
+      const pin = await api('/api/pins/' + encodeURIComponent(code));
+      els.world.value = pin.world;
+      els.x.value = pin.x;
+      els.y.value = pin.y;
+      els.z.value = pin.z;
+      els.yaw.value = pin.yaw || 0;
+      els.pitch.value = pin.pitch || 0;
+      setStatus('Location set from ' + pin.player + '.', 'ok');
+    }
+
+    function renderPreview() {
+      els.preview.innerHTML = '';
+      const lines = els.lines.value.split(/\r?\n/);
+      if (!lines.some(Boolean)) {
+        els.preview.textContent = 'Preview';
+        return;
+      }
+      for (const raw of lines) {
+        const div = document.createElement('div');
+        div.className = 'preview-line';
+        div.innerHTML = miniToHtml((raw.split('||')[0] || '').replaceAll('&lt;', '<'));
+        els.preview.append(div);
+      }
+    }
+
+    function miniToHtml(raw) {
+      let text = escapeHtml(raw);
+      const colors = {
+        black: '#000000', dark_blue: '#0000aa', dark_green: '#00aa00', dark_aqua: '#00aaaa',
+        dark_red: '#aa0000', dark_purple: '#aa00aa', gold: '#ffaa00', gray: '#aaaaaa',
+        dark_gray: '#555555', blue: '#5555ff', green: '#55ff55', aqua: '#55ffff',
+        red: '#ff5555', light_purple: '#ff55ff', yellow: '#ffff55', white: '#ffffff'
+      };
+      text = text.replace(/&([0-9a-f])/gi, (_, c) => `<span style="color:${legacyColor(c)}">`);
+      text = text.replace(/<#[0-9a-fA-F]{6}>/g, m => `<span style="color:${m.slice(1, -1)}">`);
+      for (const [name, color] of Object.entries(colors)) {
+        text = text.replace(new RegExp('&lt;' + name + '&gt;', 'gi'), `<span style="color:${color}">`);
+      }
+      text = text.replace(/&lt;(bold|b)&gt;/gi, '<strong>');
+      text = text.replace(/&lt;\/(bold|b)&gt;/gi, '</strong>');
+      text = text.replace(/&lt;(italic|i)&gt;/gi, '<em>');
+      text = text.replace(/&lt;\/(italic|i)&gt;/gi, '</em>');
+      text = text.replace(/&lt;(reset|\/?[a-z_]+)&gt;/gi, '');
+      return text;
+    }
+
+    function legacyColor(code) {
+      return {
+        0: '#000000', 1: '#0000aa', 2: '#00aa00', 3: '#00aaaa',
+        4: '#aa0000', 5: '#aa00aa', 6: '#ffaa00', 7: '#aaaaaa',
+        8: '#555555', 9: '#5555ff', a: '#55ff55', b: '#55ffff',
+        c: '#ff5555', d: '#ff55ff', e: '#ffff55', f: '#ffffff'
+      }[String(code).toLowerCase()] || '#ffffff';
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
+    }
+
+    function round(value) {
+      return Number(value || 0).toFixed(1);
+    }
+
+    function wire(id, event, fn) {
+      els[id].addEventListener(event, async ev => {
+        try {
+          await fn(ev);
+        } catch (err) {
+          setStatus(err.message || String(err), 'error');
+        }
+      });
+    }
+
+    wire('saveToken', 'click', async () => {
+      localStorage.setItem('xholograms-token', els.token.value.trim());
+      await refreshAll();
+    });
+    wire('refresh', 'click', () => refreshAll(state.currentId));
+    wire('newHologram', 'click', newHologram);
+    wire('form', 'submit', save);
+    wire('delete', 'click', deleteCurrent);
+    wire('usePin', 'click', usePin);
+    els.lines.addEventListener('input', renderPreview);
+
+    newHologram();
+    if (els.token.value.trim()) {
+      refreshAll().catch(err => setStatus(err.message || String(err), 'error'));
+    } else {
+      setStatus('Enter the web token to connect.');
+    }
+  </script>
+</body>
+</html>

@@ -7,9 +7,11 @@ Modern Paper holograms built on native `TextDisplay` entities.
 - Persistent YAML holograms
 - MiniMessage formatting
 - Animated lines with `||` frame syntax
-- Built-in placeholders: `{online}`, `{max_players}`, `{world}`, `{time}`, `{tps}`
-- Precise line editing and movement commands
+- Built-in placeholders: `{online}`, `{max_players}`, `{world}`, `{x}`, `{y}`, `{z}`, `{time}`, `{date}`, `{tps}`
+- Precise line editing, copy, rename, and absolute/relative move commands
 - Global and per-hologram display settings for spacing, scale, wrapping, billboard mode, alignment, background, shadow, and view range
+- Optional browser editor with token auth and `/holo pin` placement codes
+- Survives world unloads - dormant holograms re-appear when the world is loaded again
 
 ## Commands
 
@@ -18,12 +20,19 @@ Modern Paper holograms built on native `TextDisplay` entities.
 - `/holo setline <id> <line> <text>`
 - `/holo insertline <id> <line> <text>`
 - `/holo removeline <id> <line>`
+- `/holo clear <id>`
 - `/holo movehere <id>`
-- `/holo style <id> <setting> <value>`
+- `/holo move <id> [<x> <y> <z>]` - `~` keeps the current value
+- `/holo copy <src> <dst>`
+- `/holo rename <old> <new>`
+- `/holo style <id> <setting> <value>` (use `reset` to clear all overrides)
 - `/holo delete <id>`
-- `/holo list`
-- `/holo near`
+- `/holo list [world]`
+- `/holo near [distance]` - closest single hologram
+- `/holo nearby [distance]` - every hologram within range
 - `/holo info <id>`
+- `/holo teleport <id>`
+- `/holo pin`
 - `/holo reload`
 
 Use `||` inside a line to animate between frames:
@@ -38,7 +47,7 @@ Use `||` inside a line to animate between frames:
 ./gradlew build
 ```
 
-The release jar is created at `build/libs/xHolograms-0.1.1.jar`.
+The release jar is created at `build/libs/xHolograms-0.1.4.jar`.
 
 ## Style Settings
 
@@ -52,4 +61,5 @@ Examples:
 /holo style beta-welcome backgroundcolor #99000000
 /holo style beta-welcome billboard CENTER
 /holo style beta-welcome align CENTER
+/holo style beta-welcome reset
 ```

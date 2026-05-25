@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public final class HologramStorage {
@@ -46,10 +47,11 @@ public final class HologramStorage {
             ConfigurationSection section = root.getConfigurationSection(id);
             if (section == null) continue;
 
-            World world = Bukkit.getWorld(section.getString("world", ""));
+            String worldName = section.getString("world", "");
+            World world = worldName.isEmpty() ? null : Bukkit.getWorld(worldName);
             if (world == null) {
                 skippedOnLastLoad.add(id);
-                plugin.getLogger().warning("Skipping hologram '" + id + "' because world '" + section.getString("world") + "' is not loaded.");
+                plugin.getLogger().warning("Skipping hologram '" + id + "' because world '" + (worldName.isEmpty() ? "<missing>" : worldName) + "' is not loaded.");
                 continue;
             }
 
@@ -64,7 +66,12 @@ public final class HologramStorage {
             List<HologramLine> lines = section.getStringList("lines").stream()
                     .map(HologramLine::parse)
                     .toList();
-            holograms.add(new Hologram(id, location, lines, loadStyle(section.getConfigurationSection("style"))));
+            try {
+                holograms.add(new Hologram(id, location, lines, loadStyle(section.getConfigurationSection("style"))));
+            } catch (IllegalArgumentException e) {
+                skippedOnLastLoad.add(id);
+                plugin.getLogger().warning("Skipping hologram '" + id + "': " + e.getMessage());
+            }
         }
         return holograms;
     }
@@ -77,9 +84,17 @@ public final class HologramStorage {
 
         for (Hologram hologram : holograms) {
             Location location = hologram.location();
+            String worldName = hologram.worldName();
+            if (worldName == null && location.getWorld() != null) {
+                worldName = location.getWorld().getName();
+            }
+            if (worldName == null) {
+                plugin.getLogger().warning("Skipping save for '" + hologram.id() + "': unknown world.");
+                continue;
+            }
             savedIds.add(hologram.id());
             ConfigurationSection section = root.createSection(hologram.id());
-            section.set("world", location.getWorld() == null ? "world" : location.getWorld().getName());
+            section.set("world", worldName);
             section.set("x", location.getX());
             section.set("y", location.getY());
             section.set("z", location.getZ());
@@ -166,7 +181,7 @@ public final class HologramStorage {
     private static <E extends Enum<E>> @NotNull E parseEnum(@NotNull Class<E> type, String input, @NotNull E fallback) {
         if (input == null || input.isBlank()) return fallback;
         try {
-            return Enum.valueOf(type, input.strip().toUpperCase());
+            return Enum.valueOf(type, input.strip().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return fallback;
         }

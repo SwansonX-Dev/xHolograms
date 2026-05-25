@@ -152,6 +152,21 @@ public final class HologramStyle {
         alignment = null;
     }
 
+    public @NotNull HologramStyle copy() {
+        HologramStyle copy = new HologramStyle();
+        copy.lineHeight = lineHeight;
+        copy.scale = scale;
+        copy.viewRange = viewRange;
+        copy.shadowed = shadowed;
+        copy.seeThrough = seeThrough;
+        copy.defaultBackground = defaultBackground;
+        copy.backgroundColor = backgroundColor;
+        copy.lineWidth = lineWidth;
+        copy.billboard = billboard;
+        copy.alignment = alignment;
+        return copy;
+    }
+
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
     }

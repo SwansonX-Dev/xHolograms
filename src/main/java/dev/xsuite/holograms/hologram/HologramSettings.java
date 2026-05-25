@@ -6,6 +6,8 @@ import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Locale;
+
 public record HologramSettings(
         double lineHeight,
         int updateIntervalTicks,
@@ -24,9 +26,9 @@ public record HologramSettings(
         int block = clampLight(config.getInt("settings.brightness.block", 15));
         int sky = clampLight(config.getInt("settings.brightness.sky", 15));
         return new HologramSettings(
-                config.getDouble("settings.line-height", 0.28D),
+                clamp(config.getDouble("settings.line-height", 0.28D), 0.05D, 2.0D),
                 Math.max(1, config.getInt("settings.update-interval-ticks", 20)),
-                (float) config.getDouble("settings.view-range", 64.0D),
+                (float) clamp(config.getDouble("settings.view-range", 64.0D), 1.0D, 256.0D),
                 config.getBoolean("settings.shadowed", false),
                 config.getBoolean("settings.see-through", false),
                 config.getBoolean("settings.default-background", false),
@@ -42,10 +44,14 @@ public record HologramSettings(
         return Math.max(0, Math.min(15, value));
     }
 
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private static <E extends Enum<E>> @NotNull E parseEnum(@NotNull Class<E> type, String input, @NotNull E fallback) {
         if (input == null || input.isBlank()) return fallback;
         try {
-            return Enum.valueOf(type, input.strip().toUpperCase());
+            return Enum.valueOf(type, input.strip().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return fallback;
         }
